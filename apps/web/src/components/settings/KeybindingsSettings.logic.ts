@@ -19,10 +19,28 @@ const usageCommandOrder = new Map<KeybindingCommand, number>(
   [...METRIC_OPTIONS, ...WINDOW_OPTIONS].map((option, index) => [option.command, index]),
 );
 
-function compareUsageCommands(left: KeybindingCommand, right: KeybindingCommand): number | null {
+const [firstUsageCommand] = usageCommandOrder.keys();
+
+/**
+ * Orders commands by `text`, except that the Usage page commands keep the
+ * page's order. They sort as one block at the position of their first
+ * command: comparing them to other commands by their own text would
+ * contradict the page order and leave the result to the input order.
+ */
+function compareCommands(
+  left: KeybindingCommand,
+  right: KeybindingCommand,
+  text: (command: KeybindingCommand) => string,
+): number {
   const leftIndex = usageCommandOrder.get(left);
   const rightIndex = usageCommandOrder.get(right);
-  return leftIndex !== undefined && rightIndex !== undefined ? leftIndex - rightIndex : null;
+  if (leftIndex !== undefined && rightIndex !== undefined) return leftIndex - rightIndex;
+  const anchor = (command: KeybindingCommand, index: number | undefined) =>
+    index === undefined || firstUsageCommand === undefined ? command : firstUsageCommand;
+  return (
+    text(anchor(left, leftIndex)).localeCompare(text(anchor(right, rightIndex))) ||
+    (leftIndex === undefined ? 0 : 1) - (rightIndex === undefined ? 0 : 1)
+  );
 }
 
 export type KeybindingSource = "Default" | "Custom" | "Project";
@@ -215,9 +233,7 @@ export function buildKeybindingRows(
   });
 
   rowsWithConflicts.sort((left, right) => {
-    const commandCompare =
-      compareUsageCommands(left.command, right.command) ??
-      left.command.localeCompare(right.command);
+    const commandCompare = compareCommands(left.command, right.command, String);
     if (commandCompare !== 0) return commandCompare;
     return left.key.localeCompare(right.key);
   });
@@ -290,10 +306,7 @@ export function buildKeybindingCommandOptions(
   for (const binding of keybindings) {
     commands.add(binding.command);
   }
-  return [...commands].toSorted(
-    (left, right) =>
-      compareUsageCommands(left, right) ?? commandLabel(left).localeCompare(commandLabel(right)),
-  );
+  return [...commands].toSorted((left, right) => compareCommands(left, right, commandLabel));
 }
 
 export function commandLabel(command: KeybindingCommand): string {
