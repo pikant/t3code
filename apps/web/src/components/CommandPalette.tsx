@@ -487,6 +487,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
   const clearOpenIntent = useCallback(() => dispatch({ _tag: "ClearOpenIntent" }), []);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const legacySidebarEnabled = useLegacySidebarEnabled();
+  const hasProjects = useProjects().length > 0;
   const { theme, themeHalves, resolvedTheme, appearanceMode, setAppearanceMode } = useTheme();
   const composerHandleRef = useRef<ChatComposerHandle | null>(null);
   const routeTarget = useParams({
@@ -555,8 +556,9 @@ export function CommandPalette({ children }: { children: ReactNode }) {
         dispatch({ _tag: "OpenChangeTheme" });
         return;
       }
-      // The legacy sidebar has no project scope, so its shortcut stays inert.
-      if (command === "sidebar.filterProject" && !legacySidebarEnabled) {
+      // Inert where the sidebar has no project scope to set: the legacy
+      // sidebar, or no projects. The event then stays with its other handlers.
+      if (command === "sidebar.filterProject" && !legacySidebarEnabled && hasProjects) {
         event.preventDefault();
         event.stopPropagation();
         if (event.repeat) return;
@@ -592,6 +594,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     appearanceMode,
+    hasProjects,
     keybindings,
     legacySidebarEnabled,
     navigate,
